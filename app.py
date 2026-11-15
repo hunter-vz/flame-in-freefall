@@ -66,6 +66,11 @@ def load_all_points():
 
 
 STATE = load_model()
+# Streamlit can re-import fif_model on a rerun (e.g. after a redeploy) while the cached STATE survives;
+# put the fitted state back into the module so fif_model.predict() always has it
+if fif_model.STATE is not STATE:
+    fif_model.STATE.clear()
+    fif_model.STATE.update(STATE)
 EXPORT = load_export()
 MATERIALS = EXPORT['materials']                 # names exactly as in model_export.json
 
