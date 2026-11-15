@@ -164,7 +164,7 @@ The notebook runs in Google Colab (with Google Drive) or locally from the reposi
 
 ## Use of AI tools
 
-An AI assistant (Anthropic's Claude) was used for code development and debugging, checking transcriptions against the NASA records, and drafting documentation. All data comes from NASA sources. Project direction, design decisions and review of all results were done by the team.
+The analysis code is based on the team's own machine-learning bootcamp notebooks, whose structure and format the project follows. An AI assistant (Anthropic's Claude) was used to adapt that code to the BASS-II data, help build the dashboard, debug, check transcriptions against the NASA records and draft documentation. All data comes from NASA sources. Project direction, design decisions and review of all results were done by the team.
 
 ## Team
 
