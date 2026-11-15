@@ -1,178 +1,171 @@
-# 🔥 Flame in Freefall
+# Flame in Freefall
 
-**NASA's microgravity fire data stops at 22% oxygen. Planned Moon habitats will run at 26.5–34% oxygen.
-Our tool predicts how spacecraft cabin materials burn in that gap, tells NASA which fire experiment to run next to close it, and locks its predictions publicly so they can be checked.**
+Predicting material flammability in microgravity at lunar-habitat oxygen levels, and selecting the next fire experiment to run.
 
-NASA Space Apps Challenge 2026 · Challenge: *Flame in Freefall: AI-Powered Fire Safety Insights from Microgravity Combustion Data* · Local event: Pretoria, South Africa
+NASA Space Apps Challenge 2026, challenge *Flame in Freefall: AI-Powered Fire Safety Insights from Microgravity Combustion Data*. Local event: Pretoria, South Africa.
 
-| | |
-|---|---|
-| 🌐 **Live dashboard** | https://flame-in-freefall-hvz.streamlit.app/ |
-| 📓 **Full analysis** | [`Flame_in_Freefall.ipynb`](Flame_in_Freefall.ipynb) (every step, output and finding) |
-| 🔒 **Locked predictions** | [`prediction_registry.csv`](prediction_registry.csv) (v1) · [`prediction_registry_v2.csv`](prediction_registry_v2.csv) (v2) |
+- Dashboard: https://flame-in-freefall-hvz.streamlit.app/
+- Analysis notebook: [Flame_in_Freefall.ipynb](Flame_in_Freefall.ipynb)
+- Prediction registries: [prediction_registry.csv](prediction_registry.csv) (v1), [prediction_registry_v2.csv](prediction_registry_v2.csv) (v2)
 
----
+## Overview
 
-## The pitch
+NASA's microgravity flammability data for solid materials (BASS-II, ISS) covers oxygen concentrations up to 22% by volume. Proposed lunar surface habitat atmospheres are richer in oxygen: 34% O₂ at 8.2 psia and 26.5% O₂ at 10.2 psia. No microgravity burn data exists in that range, and each new test uses limited ISS resources.
 
-Fire in microgravity behaves differently from fire on Earth: with no buoyancy, a flame only lives if the air moving past it brings in enough oxygen, and too much flow blows it off. NASA has measured this on the ISS (BASS-II), but only up to **22% O₂**. Future lunar habitats are being designed around richer air: **34% O₂ at 8.2 psia** and **26.5% O₂ at 10.2 psia**. Every fire test in that range costs ISS crew time.
+This project does three things:
 
-Our answer has three parts:
+1. Fits a model to NASA's BASS-II results that estimates the probability that a flame survives, for five cabin materials, as a function of oxygen concentration and airflow, with a 90% uncertainty range.
+2. Recommends the next experiment to run, choosing the test expected to improve the model most. On a replay of the BASS-II campaign, this approach reached the final model's accuracy in fewer tests than random, chronological or human-designed test orders.
+3. Records its predictions for the recommended tests in registries that were frozen and committed to this repository, with SHA-256 checksums, before any of the tests are run.
 
-1. **Predict:** a model trained on NASA's own ISS burns gives the chance that a flame survives, for five cabin materials, any oxygen level and any airflow, with an honest 90% range and a label saying how far it is from real data.
-2. **Recommend:** a next-experiment method that picks the test that teaches the most. Replayed on NASA's real BASS-II campaign, it learned the flame-out boundary in **27% fewer tests than a careful human strategy**, and the obvious "test near Moon conditions first" strategy did **worse than random**.
-3. **Commit:** our predictions for those next tests are frozen with SHA-256 fingerprints and committed here *before* anyone runs them. When NASA runs them, anyone can score us.
+## Results
 
----
+### Test-selection replay
 
-## Key results
+Olson's 26 BASS-II PMMA rod tests were replayed in different orders from the same 20 randomly drawn starting sets. For each order we counted the number of tests needed for the model's Brier score to fall within 10% of the all-data value and remain there.
 
-### 1. Fewer experiments to learn the fire limit
-We replayed Olson's 26 BASS-II PMMA-rod tests in different orders, from the same 20 random starting sets, and counted how many tests each order needed before the model's error was within 10% of the all-data model's, **and stayed there**.
-
-| Order of testing | Tests needed (mean, range) | Our method vs this order, same start |
+| Test order | Tests needed, mean (range) | Comparison with our method, same start |
 |---|---|---|
-| **Our method** (most model disagreement inside a trust region) | **11.2** (4–16) | — |
-| NASA's real order (one run) | 13 | 14% fewer |
-| Spread out (a careful human) | 15.4 (12–18) | **27% fewer**; won 14, tied 3, lost 3 of 20 |
-| Random | 17.9 (6–26) | 38% fewer; won 15, tied 2, lost 3 of 20 |
-| Highest O₂ first (the "obvious" guess) | 23.1 (13–26) | 52% fewer; won 20 of 20 |
+| Our method | 11.2 (4–16) | |
+| NASA's original order (single run) | 13 | 14% fewer tests |
+| Evenly spread conditions | 15.4 (12–18) | 27% fewer; 14 wins, 3 ties, 3 losses |
+| Random | 17.9 (6–26) | 38% fewer; 15 wins, 2 ties, 3 losses |
+| Highest oxygen first | 23.1 (13–26) | 52% fewer; 20 wins of 20 |
 
-**Why the obvious guess fails:** at high oxygen everything burns, so those tests teach nothing about where flames go out. You have to find the boundary first, then step towards Moon air.
+Testing the highest oxygen levels first performed worse than a random order. Nearly all high-oxygen tests burn, so they add little information about the extinction boundary.
 
-### 2. A materials map of the oxygen limit (microgravity, 14.7 psia)
+### Oxygen limit by material
 
-Yes/no limit = the O₂ below which the model calls a flame-out (with 90% bootstrap range).
+Oxygen concentration below which the model predicts extinction, at 14.7 psia in microgravity, with 90% bootstrap intervals.
 
-| Material | at 5 cm/s | at 20 cm/s | Notes |
+| Material | 5 cm/s | 20 cm/s | Notes |
 |---|---|---|---|
-| PMMA plastic: rod, concurrent flow | **15.9%** (13.2–16.4) | 17.3% (16.7–18.7) | lowest limit: survives at the lowest oxygen |
-| PMMA plastic: rod, opposed flow | **17.5%** (12.7–18.6) | 18.9% (15.8–21.9) | rests on one test (P8): treat with care |
-| PMMA plastic: thin film | **17.6%** (15.4–18.0) | 19.0% (17.1–20.8) | |
-| PMMA plastic: thick slab | never went out | — | limit is below 16.8% (lowest burn) |
-| SIBAL fabric (cotton–fibreglass) | never went out | — | limit is below 16.4% (lowest burn) |
+| PMMA rod, concurrent flow | 15.9% (13.2–16.4) | 17.3% (16.7–18.7) | Lowest limit of the materials tested |
+| PMMA rod, opposed flow | 17.5% (12.7–18.6) | 18.9% (15.8–21.9) | Based on a single test (P8) |
+| PMMA thin film | 17.6% (15.4–18.0) | 19.0% (17.1–20.8) | |
+| PMMA thick slab | not determined | not determined | No extinction observed; lowest burn at 16.8% |
+| SIBAL fabric (cotton–fibreglass) | not determined | not determined | No extinction observed; lowest burn at 16.4% |
 
-- Every PMMA form is **extrapolated** to burn at both Moon set-points (26.5% and 34%).
-- **SIBAL**, the fabric NASA burned at full scale in SAFFIRE-II, never went out in any BASS-II test, so its microgravity oxygen limit is still unknown in this data. Our *Bracket* test targets exactly that.
+All three PMMA forms are predicted to burn at both lunar set-points; these predictions are extrapolations beyond the tested range. SIBAL and the thick PMMA slab did not extinguish in any BASS-II test, so their limits remain undetermined.
 
-### 3. Better than a smart rule, honestly measured
-Leave-one-test-out validation (a whole test hidden at a time), all materials, 278 points:
+### Validation
 
-| Method | Balanced accuracy | Brier score (lower is better) |
+Leave-one-test-out cross-validation over all materials (278 points):
+
+| Method | Balanced accuracy | Brier score |
 |---|---|---|
-| **Our model** | **0.80** | **0.043** |
-| Expert rule "burns if O₂ > threshold" (threshold learned from the data) | 0.76 | 0.049 |
-| Base rate ("always burns") | 0.50 | 0.052 |
+| Logistic model | 0.80 | 0.043 |
+| Oxygen threshold rule (threshold fitted to training data) | 0.76 | 0.049 |
+| Base rate | 0.50 | 0.052 |
 
-Oxygen dominates (each extra 1% O₂ multiplies the odds of burning by about 3; doubling the airflow roughly halves them), so a single threshold already gets most of the answer. The model adds airflow, material differences and an uncertainty range on every prediction.
+Oxygen concentration is the dominant variable. Each additional percentage point of O₂ multiplies the odds of burning by approximately 2.9, and doubling the airflow multiplies them by approximately 0.47.
 
----
-
-## Locked predictions
+## Prediction registries
 
 | Registry | SHA-256 | Frozen (UTC) | Commit |
 |---|---|---|---|
-| v1: PMMA rods | `fa8bea740f0177e775cd2b87e874a6ee32ae1ae933315fc4225c67a3f8ca0781` | 2026-11-14T15:27:37Z | [`d42ba4c`](https://github.com/hunter-vz/flame-in-freefall/commit/d42ba4c) |
-| v2: all materials | `5d6ed7dfb2f3bace6007286fb480a2d72183d1b9ba9dfd3b5fc133eda0f3d8b3` | 2026-11-15T06:46:41Z | [`ee38234`](https://github.com/hunter-vz/flame-in-freefall/commit/ee38234ecc7d3d5524462d6b56cab0210291b526) |
+| v1, PMMA rods | `fa8bea740f0177e775cd2b87e874a6ee32ae1ae933315fc4225c67a3f8ca0781` | 2026-11-14 15:27:37 | [d42ba4c](https://github.com/hunter-vz/flame-in-freefall/commit/d42ba4c) |
+| v2, all materials | `5d6ed7dfb2f3bace6007286fb480a2d72183d1b9ba9dfd3b5fc133eda0f3d8b3` | 2026-11-15 06:46:41 | [ee38234](https://github.com/hunter-vz/flame-in-freefall/commit/ee38234ecc7d3d5524462d6b56cab0210291b526) |
 
-**Registry v2** (all at 14.7 psia, microgravity, ISS SoFIE hardware):
+Registry v2 (all tests at 14.7 psia, microgravity, ISS SoFIE hardware):
 
-| Track | Material | O₂ | Airflow (cm/s) | Prediction |
-|---|---|---|---|---|
-| Refine | PMMA rod, concurrent (¼", clear) | 13.5% | 7.75 | 56% chance of burning (90%: 26–92%) → flame-out warning |
-| Explore | PMMA rod, concurrent | 25.2% | 20.3 | >99% → burns (extrapolated) |
-| Refine | PMMA rod, opposed (3/8", black) | 16.5% | 23.94 | 56% (90%: 14–98%) → toss-up |
-| Explore | PMMA rod, opposed | 23.9% | 20.3 | >99% → burns (extrapolated) |
-| Refine | PMMA thin film | 17.0% | 30.0 | 64% (90%: 37–93%) → flame-out warning |
-| Explore | PMMA thin film | 25.2% | 20.3 | >99% → burns (extrapolated) |
-| Bracket | PMMA thick slab | 15.3% | 8 | no prediction: finds the limit |
-| Bracket | SIBAL fabric | 14.9% | 10 | no prediction: finds the limit |
+| Track | Material | O₂ | Airflow (cm/s) | P(burn), 90% range | Call |
+|---|---|---|---|---|---|
+| Refine | PMMA rod, concurrent (0.25 in, clear) | 13.5% | 7.75 | 0.56 (0.26–0.92) | Flame-out warning |
+| Explore | PMMA rod, concurrent | 25.2% | 20.3 | >0.99 | Burns (extrapolated) |
+| Refine | PMMA rod, opposed (0.375 in, black) | 16.5% | 23.94 | 0.56 (0.14–0.98) | Toss-up |
+| Explore | PMMA rod, opposed | 23.9% | 20.3 | >0.99 | Burns (extrapolated) |
+| Refine | PMMA thin film | 17.0% | 30.0 | 0.64 (0.37–0.93) | Flame-out warning |
+| Explore | PMMA thin film | 25.2% | 20.3 | >0.99 | Burns (extrapolated) |
+| Bracket | PMMA thick slab | 15.3% | 8 | none | Locates the limit |
+| Bracket | SIBAL fabric | 14.9% | 10 | none | Locates the limit |
 
-Registry v1 (PMMA rods only) also holds the **frontier pressure pair**: 34% O₂ at 5 cm/s at 8.2 psia (no prediction: reduced pressure isn't in the data) and at 14.7 psia, which separates the oxygen effect from the pressure effect. Both are within the planned SoFIE range (0.2–1.5 atm, 10–40% O₂).
+Registry v1 also includes a pressure pair at 34% O₂ and 5 cm/s, at 8.2 psia (no prediction, as reduced pressure is outside the data) and 14.7 psia. Both conditions fall within the planned SoFIE operating range (0.2–1.5 atm, 10–40% O₂).
 
-**Check us:** download a registry from its commit, then run `certutil -hashfile prediction_registry_v2.csv SHA256` (Windows) or `shasum -a 256 prediction_registry_v2.csv` (Mac/Linux) and compare with the table. The dashboard also checks both fingerprints live.
+To verify a registry, download it from its commit and compute its checksum with `certutil -hashfile <file> SHA256` (Windows) or `shasum -a 256 <file>` (macOS/Linux). The dashboard also verifies both checksums.
 
----
+## Method
 
-## How it works
+### Data
 
-### Data (all NASA, nothing invented)
-- **BASS-II as-run table** (NASA PSI-25): 129 burn tests run on the ISS in 2014–2016. There is no outcome column: whether a flame went out is written as free-text notes ("ext", "blowoff", "would not stay lit"). We transcribed **123 tests into 430 points** by hand, keeping NASA's raw text next to every point.
-- **Fan calibration sheet** (PSI-25 reference data): many airflows were recorded as fan-knob settings. We convert them with that day's and that restrictor's calibration, and never extrapolate. Checked against readings NASA wrote down: knob → fan within 0.55 units, fan → airflow within about 1 cm/s on average.
-- **278 usable points, 15 usable flame-outs**, across 5 solid cabin materials. Points that can't be trusted (airflow below the calibrated range, airflow 0, outcome not stated) are kept in the table, flagged with the reason, and left out of the model.
-- **SAFFIRE-II** (NASA PSI-99): used only as a sanity check. SIBAL and PMMA both burned in space at about 22% O₂ and 20 cm/s, matching our model's "burns" call there.
+- **BASS-II as-run table (NASA PSI-25).** 129 tests run on the ISS between 2014 and 2016. Outcomes are recorded only as free-text notes (for example "ext", "blowoff", "would not stay lit"), so each test was transcribed manually. 123 tests give 430 data points, each stored with the original NASA text.
+- **Fan calibration data (PSI-25 reference data).** Airflow was often logged as a fan setting. These were converted using the calibration for the same day and flow restrictor, without extrapolation. Against airflows recorded during the tests, the fan-setting conversion agrees within 0.55 display units and the airflow conversion within about 1 cm/s on average.
+- **Usable data.** 278 points with 15 extinctions across five solid materials. Points with airflow below the calibrated range, zero airflow or no recorded outcome are retained in the dataset with the reason for exclusion and are not used for fitting.
+- **SAFFIRE-II (NASA PSI-99).** Used as a consistency check only. SIBAL and PMMA burned at approximately 22% O₂ and 20 cm/s, in agreement with the model.
 
-### Pipeline (notebook sections)
-1. **Transcribe and clean:** every flow setting in time order, O₂ stepped from each test's start to end value, airflow converted from the calibration, a weight per point (1 measured, 0.5 converted).
-2. **Model:** logistic regression on O₂, ln(airflow) and a material indicator, fitted with per-point weights and **no class reweighting**, so probabilities stay honest. The yes/no call uses the weighted burn base rate as its threshold.
-3. **Validate:** leave-one-**test**-out (points from one test share a sample and a day, so hiding single points would flatter the model), compared with a base-rate baseline and an expert O₂-threshold rule.
-4. **Uncertainty:** 100 bootstrap models, resampled by test within each material, give a 90% range for every prediction and a *disagreement* score.
-5. **Recommend the next test**, in three tracks:
-   - **Refine:** the test inside a *trust region* where the models disagree most, weighted towards Moon-relevant oxygen and the crew-cabin ventilation band (7.6–20.3 cm/s).
-   - **Explore:** one controlled step (3 points of O₂) above the highest oxygen tested, towards Moon air. The trust region grows ×1.5 when predictions come true and shrinks ×0.5 when they fail.
-   - **Bracket:** for materials that never went out, 1.5 points of O₂ below their lowest burn, at the same airflow.
-6. **Replay:** NASA's real campaign is replayed one test at a time. Each prediction is locked before the real result is revealed, then scored.
-7. **Freeze:** registries are written once, locked against overwriting, fingerprinted and committed.
+### Pipeline
 
-### Decisions that matter
-- **Never invent data:** unreadable values stay blank and every point traces back to NASA's text.
-- **A simple model on purpose:** 15 flame-outs is far too few for deep learning. A small model with honest uncertainty is what safety work needs.
-- **Beat a smart human, not just random:** the "spread out" baseline was added before seeing its result, and our method was not retuned afterwards.
-- **Label extrapolation everywhere:** every prediction carries a trust badge, and anything above 22.2% O₂ is marked as extrapolated.
+1. **Transcription and cleaning.** Flow settings are recorded in time order, O₂ is interpolated between each test's initial and final values, airflow is converted from the calibration, and each point is weighted (1.0 measured, 0.5 converted).
+2. **Model.** Weighted logistic regression on O₂, ln(airflow) and material indicators. No class reweighting is applied, so predicted probabilities remain calibrated; the burn/extinction call uses the weighted base rate as its threshold.
+3. **Validation.** Leave-one-test-out, since points within a test share a sample and conditions. Compared against a base-rate model and a fitted oxygen-threshold rule.
+4. **Uncertainty.** 100 bootstrap models, resampled by test within each material, provide 90% intervals and a disagreement measure.
+5. **Experiment selection**, in three tracks:
+   - **Refine:** the condition within a trust region where the bootstrap models disagree most, weighted towards lunar-relevant oxygen levels and the crew-cabin ventilation range (7.6–20.3 cm/s).
+   - **Explore:** a fixed step of 3 percentage points of O₂ above the highest tested level. The trust region expands by a factor of 1.5 after a correct prediction and contracts by 0.5 after an incorrect one.
+   - **Bracket:** for materials with no observed extinction, 1.5 percentage points of O₂ below the lowest burn, at the same airflow.
+6. **Replay.** The BASS-II campaign is replayed test by test; each prediction is recorded before the actual outcome is revealed.
+7. **Registry.** Predictions are written once, protected against overwriting, checksummed and committed.
 
----
+### Design choices
+
+- No values are estimated or filled in; every data point can be traced to the NASA record.
+- A logistic model was chosen over more complex models because only 15 extinctions are available.
+- The evenly spread baseline was defined before its results were seen, and the selection method was not adjusted afterwards.
+- Every prediction is labelled according to its distance from the tested data.
 
 ## Dashboard
 
-Live at **https://flame-in-freefall-hvz.streamlit.app/**. It uses the same model code as the notebook (`fif_model.py`); the notebook checks that both give identical numbers to within 1e-13.
+https://flame-in-freefall-hvz.streamlit.app/
 
-1. **Try it yourself:** pick a material, oxygen and airflow, and get the chance of burning, a 90% range, the call and a trust badge (🟢 inside the data, 🟡 near, 🔴 extrapolation, ⚪ low flow). NASA's own points and the 3 nearest tests are shown alongside.
-2. **Locked predictions:** both registries, with their fingerprints verified live and instructions to check them yourself.
-3. **Next experiment:** the Refine, Explore and Bracket tests for each material, and the replay results.
-4. **Materials map:** each material's oxygen limit against ISS air and the two Moon set-points, at any airflow.
-5. **Add new results:** enter a new experiment (or upload a CSV), score it against the locked predictions, retrain the model and see how the limit and the next recommended test move. Session only: nothing is written to this repository.
+The dashboard uses the same model code as the notebook (`fif_model.py`). The notebook confirms that both produce identical results.
 
-### Run it locally
+1. **Try it yourself.** Select a material, oxygen level and airflow to obtain the probability of burning, its 90% interval, the predicted outcome and an indicator of how far the condition lies from tested data.
+2. **Locked predictions.** Both registries, with checksums verified on load.
+3. **Next experiment.** Recommended Refine, Explore and Bracket tests for each material, and the replay results.
+4. **Materials map.** Oxygen limits by material compared with ISS air and the lunar set-points, at a selectable airflow.
+5. **Add new results.** Enter new test results or upload a CSV, compare them with the registered predictions, and retrain the model. Entries are kept for the session only.
+
+To run locally:
+
 ```bash
 pip install -r requirements.txt
 streamlit run app.py
 ```
-The notebook runs in Google Colab (it mounts Google Drive) or locally from this folder.
 
----
+The notebook runs in Google Colab (with Google Drive) or locally from the repository folder.
 
 ## Repository contents
 
-| File | What it is |
+| File | Description |
 |---|---|
-| `Flame_in_Freefall.ipynb` | Full analysis: data, model, validation, replay, registries, export |
+| `Flame_in_Freefall.ipynb` | Full analysis: data processing, model, validation, replay, registries and export |
 | `app.py`, `requirements.txt` | Streamlit dashboard |
-| `fif_model.py` | Shared model module (fit, predict, next experiment), used by the notebook check and the dashboard |
-| `model_export.json` | Fitted coefficients, 100 bootstrap sets, threshold and tested ranges per material |
-| `all_test_points.csv` | Every transcribed point (430), with flags and reasons for any exclusion |
-| `prediction_registry.csv`, `prediction_registry_v2.csv` | Frozen predictions (never edited) |
+| `fif_model.py` | Model module used by the dashboard and checked against the notebook |
+| `model_export.json` | Fitted coefficients, bootstrap coefficient sets, threshold and tested ranges |
+| `all_test_points.csv` | All 430 transcribed data points with exclusion flags |
+| `prediction_registry.csv`, `prediction_registry_v2.csv` | Frozen prediction registries |
 | `PSI-25_Experimental table_BASS-II.csv`, `Fan calibration data.xlsx` | NASA source data |
 
----
+## Limitations
 
-## Limitations (stated plainly)
-- **Pressure:** every BASS-II test ran at ISS cabin pressure (~14.7 psia). The effect of the lower habitat pressures (8.2 and 10.2 psia) is **not in the data**; that is why the frontier pressure pair exists.
-- **Extrapolation:** NASA's data stops at 22.2% O₂. Predictions above it extend the same straight line and the 90% range can't show that uncertainty; they are labelled as extrapolated.
-- **Few flame-outs:** 15 usable flame-outs in total. The opposed-rod limit rests on one test (P8). Low-airflow flame-outs were mostly recorded below the calibrated fan range, so the boundary below 2 cm/s is unknown.
-- **Replay scope:** the replay covers Olson's PMMA rods only (≤22% O₂). It validates the Refine part of the method, not the Moon-level predictions.
-
----
+- All BASS-II tests ran at ISS cabin pressure (approximately 14.7 psia). The effect of reduced habitat pressure is not represented in the data.
+- The highest oxygen level tested is 22.2%. Predictions above this are extrapolations, and the bootstrap intervals do not capture that uncertainty.
+- Only 15 usable extinctions are available. The opposed-flow rod limit depends on a single test, and the boundary below 2 cm/s is undetermined because low-flow extinctions were recorded below the calibrated fan range.
+- The replay covers Olson's PMMA rod tests only (up to 22% O₂) and validates the Refine track, not the predictions at lunar oxygen levels.
 
 ## Sources
-- NASA Physical Sciences Informatics, **PSI-25: BASS-II** experimental table and fan calibration reference data: https://psi.nasa.gov
-- NASA Physical Sciences Informatics, **PSI-99: SAFFIRE-II** experimental table
-- NASA NTRS **20240003211**, *Moon to Mars (M2M): Exploration Atmosphere* (8.2 psia, 34% O₂)
-- NASA NTRS **20220013669**, *Internal Layout of a Lunar Surface Habitat* (8.2 psia / 34% O₂ or 10.2 psia / 26.5% O₂)
-- NASA, *Researcher's Guide to Combustion Science* (SoFIE planned ranges: 0.2–1.5 atm, 10–40% O₂, flows up to 30 cm/s)
-- NASA NESC Technical Bulletin 26-05, *Webbings for Use in Elevated Oxygen Environments*
 
-## Use of AI
-This project was built with the help of an AI assistant (Anthropic's Claude), used for writing and debugging code, checking transcriptions against NASA's raw text, drafting analysis text and documentation, and reviewing results. All data comes from NASA; nothing was generated or invented. Project direction, design decisions and final review were done by the team.
+- NASA Physical Sciences Informatics, PSI-25: BASS-II experimental table and fan calibration data. https://psi.nasa.gov
+- NASA Physical Sciences Informatics, PSI-99: SAFFIRE-II experimental table.
+- NASA NTRS 20240003211, *Moon to Mars (M2M): Exploration Atmosphere*.
+- NASA NTRS 20220013669, *Internal Layout of a Lunar Surface Habitat*.
+- NASA, *Researcher's Guide to Combustion Science* (SoFIE operating ranges).
+- NASA NESC Technical Bulletin 26-05, *Webbings for Use in Elevated Oxygen Environments*.
+
+## Use of AI tools
+
+An AI assistant (Anthropic's Claude) was used for code development and debugging, checking transcriptions against the NASA records, and drafting documentation. All data comes from NASA sources. Project direction, design decisions and review of all results were done by the team.
 
 ## Team
-Hunter, North-West University (Potchefstroom), South Africa
+
+Hunter, North-West University, Potchefstroom, South Africa
