@@ -331,11 +331,9 @@ def experiment_rows(material, mod=fif_model, state=None):
     state = STATE if state is None else state
     rows = []
     if not state['info'][material]['limit_found']:
-        rows.append(bracket_test(material, state))
+        return [bracket_test(material, state)]     # no flame-outs: the model's boundary is meaningless here
     for track, r in mod.next_experiment(material).items():
         why = TRACK_WHY[track]
-        if not state['info'][material]['limit_found']:
-            why += ' (boundary extrapolated: no flame-outs yet)'
         rows.append({'track': track, 'o2_pct': r['o2_pct'], 'airflow_cm_s': r['airflow_cm_s'],
                      'odds': plain_odds(r), 'call': r['call'], 'why': why})
     return rows
@@ -355,8 +353,7 @@ def page_next():
                                    'P(burn) (90% range)': df['odds'], 'Call': df['call'], 'Why': df['why']}),
                      hide_index=True, width='stretch')
     st.caption(CAPTION)
-    st.caption('Refine and Explore come live from fif_model.next_experiment(); they match the frozen registry v2. '
-               'Bracket uses the registry v2 rule (1.5 points of O2 below the lowest burn, same airflow).')
+    st.caption('Refine and Explore (rods, thin film) and Bracket (slab, SIBAL) match the frozen registry v2.')
 
     st.subheader('Does the method work? Replay on NASA\'s real tests')
     st.markdown("**Validated on NASA's real BASS-II rod tests: 27% fewer tests than a careful human "
@@ -447,7 +444,7 @@ def page_map():
     st.markdown("""
 **Notes**
 - The opposed rod limit rests on one test (P8, 3 flame-outs); treat it with care.
-- Concurrent rods have the lowest limit: flame spreading with the airflow is the hardest fire to put out.
+- Concurrent rods have the lowest limit: concurrent rods survive at the lowest oxygen in this data.
 - Thick slab and SIBAL never went out in NASA's tests, so their limit is somewhere below the lowest burn.
 """)
 
@@ -579,7 +576,7 @@ def retrain(entries):
 def model_summary(material, mod, state):
     info = state['info'][material]
     if info['limit_found']:
-        lim = f"{float(boundary_o2(material, 5.0, state=state)[0]):.1f}% O2"
+        lim = float(boundary_o2(material, 5.0, state=state)[0])
     else:
         lim = f"never went out; limit below {lowest_burn(material, state)[0]:g}%"
     ex = experiment_rows(material, mod=mod, state=state)
@@ -667,11 +664,19 @@ def page_add():
     if 'retrained' in st.session_state:
         mod, n_used = st.session_state['retrained']
         st.caption(f'Retrained on the NASA data plus {n_used} of your entries.')
-        before = model_summary(sel, fif_model, STATE)
-        after = model_summary(sel, mod, mod.STATE)
+        before = list(model_summary(sel, fif_model, STATE))
+        after = list(model_summary(sel, mod, mod.STATE))
+        if isinstance(before[0], float) and isinstance(after[0], float):
+            d = after[0] - before[0]
+            after[0] = f"{before[0]:.2f}% → {after[0]:.2f}% ({d:+.2f})".replace('-', '−')
+        else:
+            after[0] = after[0] if isinstance(after[0], str) else f'{after[0]:.2f}% O2'
+        before[0] = before[0] if isinstance(before[0], str) else f'{before[0]:.2f}% O2' 
         st.dataframe(pd.DataFrame({'': ['Yes/no O2 at 5 cm/s', 'Data', 'Next experiment'],
                                    'Before (NASA data)': before, 'After (with your entries)': after}),
                      hide_index=True, width='stretch')
+        st.caption('One new test moves a model built on 60 NASA points only a little; repeated results at the '
+                   'same condition move it more.')
         st.plotly_chart(chart_try(sel, 21, 5, mod.STATE['info'][sel], state=mod.STATE, show_star=False),
                         width='stretch')
         st.caption('Points with a white outline are your added results. ' + CAPTION)
